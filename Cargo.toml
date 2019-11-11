@@ -2,11 +2,8 @@
 name = "slack-tail-rtm"
 version = "0.1.0"
 authors = ["motemen <motemen@gmail.com>"]
-edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-reqwest = "0.9"
-tungstenite = "0.6"
-slack_api = { version = "0.21.0", features = ["reqwest"] }
+url = "2.0"
+tungstenite = "0.9"
+slack_api = "0.21"
