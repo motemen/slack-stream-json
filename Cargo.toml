@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["motemen <motemen@gmail.com>"]
 
 [dependencies]
+structopt = "0.3"
 reqwest = "0.9"
 url = "2.0"
 tungstenite = "0.9"

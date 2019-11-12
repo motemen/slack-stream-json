@@ -1,6 +1,7 @@
 extern crate reqwest;
 extern crate serde;
 extern crate serde_json;
+extern crate structopt;
 extern crate tungstenite;
 
 use serde::Deserialize;
@@ -9,21 +10,32 @@ use serde_json::Value::String as JSONString;
 use std::collections::HashMap;
 use std::env;
 use std::error::Error;
+use structopt::StructOpt;
+
+#[derive(StructOpt, Debug)]
+#[structopt()]
+struct Opt {
+    /// Inflate "user", "channel" ID fields to corresponding JSON objects
+    #[structopt(short, long)]
+    inflate: bool,
+}
 
 // https://api.slack.com/methods/rtm.start
 #[derive(Clone, Debug, Deserialize)]
-pub struct SlackRTMStartResponse {
+struct SlackRTMStartResponse {
     error: Option<String>,
     ok: bool,
-    pub url: Option<String>,
-    pub users: Option<Vec<JSONValue>>,
-    pub channels: Option<Vec<JSONValue>>,
-    pub groups: Option<Vec<JSONValue>>,
-    pub mpims: Option<Vec<JSONValue>>,
-    pub ims: Option<Vec<JSONValue>>,
+    url: Option<String>,
+    users: Option<Vec<JSONValue>>,
+    channels: Option<Vec<JSONValue>>,
+    groups: Option<Vec<JSONValue>>,
+    mpims: Option<Vec<JSONValue>>,
+    ims: Option<Vec<JSONValue>>,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    let opt = Opt::from_args();
+
     let token = env::var("SLACK_TOKEN").or(Err("SLACK_TOKEN not set"))?;
 
     let client = reqwest::Client::new();
@@ -64,15 +76,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     loop {
         let message = websocket.read_message()?;
 
-        match message {
-            tungstenite::Message::Text(text) => {
-                let mut v: JSONValue = serde_json::from_str(&text)?;
-                // TODO: make optional
+        if let tungstenite::Message::Text(text) = message {
+            let mut v: JSONValue = serde_json::from_str(&text)?;
+            if opt.inflate {
                 inflate_object(&mut v, "user", &id_to_object);
                 inflate_object(&mut v, "channel", &id_to_object);
-                println!("{}", serde_json::to_string(&v).unwrap());
             }
-            _ => {}
+            println!("{}", serde_json::to_string(&v).unwrap());
         }
     }
 }
