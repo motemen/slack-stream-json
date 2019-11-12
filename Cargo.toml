@@ -4,6 +4,8 @@ version = "0.1.0"
 authors = ["motemen <motemen@gmail.com>"]
 
 [dependencies]
+reqwest = "0.9"
 url = "2.0"
 tungstenite = "0.9"
-slack_api = "0.21"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0", features = ["raw_value"] }
