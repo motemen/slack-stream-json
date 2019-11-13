@@ -1,5 +1,5 @@
 [package]
-name = "slack-tail-rtm"
+name = "slack-stream-json"
 version = "0.1.0"
 authors = ["motemen <motemen@gmail.com>"]
 

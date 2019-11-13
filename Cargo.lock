@@ -1100,7 +1100,7 @@ version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "slack-tail-rtm"
+name = "slack-stream-json"
 version = "0.1.0"
 dependencies = [
  "reqwest 0.9.22 (registry+https://github.com/rust-lang/crates.io-index)",
