@@ -17,7 +17,15 @@ use structopt::StructOpt;
 struct Opt {
     /// Inflate "user", "channel" ID fields to corresponding JSON objects
     #[structopt(short, long)]
-    inflate: bool,
+    inflate_fields: bool,
+
+    /// Resolve Slack message format, including mentions and links
+    #[structopt(short, long)]
+    format_message: bool,
+
+    /// Print rtm.start response JSON before starting RTM stream
+    #[structopt(short, long)]
+    print_start_response: bool,
 }
 
 // https://api.slack.com/methods/rtm.start
@@ -39,11 +47,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     let token = env::var("SLACK_TOKEN").or(Err("SLACK_TOKEN not set"))?;
 
     let client = reqwest::Client::new();
-    let rtm_response: SlackRTMStartResponse = client
+    let rtm_response_text = client
         .get("https://slack.com/api/rtm.start")
         .query(&[("token", token)])
         .send()?
-        .json()?;
+        .text()?;
+    if opt.print_start_response {
+        println!("{}", rtm_response_text);
+    }
+    let rtm_response: SlackRTMStartResponse = serde_json::from_str(&rtm_response_text)?;
 
     let id_to_object = {
         let mut id_to_object: HashMap<String, JSONValue> = HashMap::new();
@@ -78,16 +90,108 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         if let tungstenite::Message::Text(text) = message {
             let mut v: JSONValue = serde_json::from_str(&text)?;
-            if opt.inflate {
-                inflate_object(&mut v, "user", &id_to_object);
-                inflate_object(&mut v, "channel", &id_to_object);
+            if opt.inflate_fields {
+                inflate_field(&mut v, "user", &id_to_object);
+                inflate_field(&mut v, "channel", &id_to_object);
+            }
+            if opt.format_message {
+                if let JSONString(s) = &v["text"] {
+                    v["text"] = JSONString(format!("{}", format_message(&s, &id_to_object)))
+                }
             }
             println!("{}", serde_json::to_string(&v).unwrap());
         }
     }
 }
 
-fn inflate_object(root: &mut JSONValue, key: &str, id_to_object: &HashMap<String, JSONValue>) {
+#[macro_use]
+extern crate lazy_static;
+
+extern crate regex;
+use regex::{Captures, Regex};
+
+// https://api.slack.com/docs/message-formatting#how_to_display_formatted_messages
+fn format_message<'a>(
+    message: &'a str,
+    id_to_object: &HashMap<String, JSONValue>,
+) -> std::borrow::Cow<'a, str> {
+    lazy_static! {
+        static ref RE: Regex =
+            Regex::new(r"&(?P<entity>amp|lt|gt);|<(?P<text>(?P<sign>[#@!]?)(?P<rest>.*?(?:\|(?P<title>.+?))?))>").unwrap();
+    }
+
+    RE.replace_all(message, |cap: &Captures| {
+        if let Some(entity) = &cap.name("entity") {
+            match entity.as_str() {
+                "amp" => String::from("&"),
+                "lt" => String::from("<"),
+                "gt" => String::from(">"),
+                _ => unreachable!(),
+            }
+        } else {
+            let text = &cap["text"];
+            let sign = &cap["sign"];
+            if sign == "@" || sign == "#" {
+                id_to_object.get(&cap["rest"]).map_or_else(
+                    || text.to_string(),
+                    |obj| format!("@{}", obj["name"].as_str().unwrap()),
+                )
+            } else if let Some(title) = cap.name("title") {
+                title.as_str().to_string()
+            } else if sign == "!" {
+                format!("@{}", &cap["rest"])
+            } else {
+                text.to_string()
+            }
+        }
+    })
+}
+
+#[test]
+fn test_fomrat_message() {
+    use serde_json::json;
+
+    let id_to_object = &[
+        (String::from("U12345"), json!({"name":"user12345"})),
+        (String::from("U99999"), json!({"name":"user99999"})),
+    ]
+    .iter()
+    .cloned()
+    .collect();
+
+    assert_eq!(
+        format_message("normal message", id_to_object),
+        "normal message",
+    );
+
+    assert_eq!(
+        format_message("<@U12345>, <@U99999> and <@U00000>", id_to_object),
+        "@user12345, @user99999 and @U00000",
+    );
+
+    assert_eq!(
+        format_message(
+            "<https://www.example.com/|example> my site <https://www.example.com/>",
+            id_to_object
+        ),
+        "example my site https://www.example.com/",
+    );
+
+    assert_eq!(
+        format_message(
+            "<!subteam^S00000000|@subteam> <!channnel> <!here>",
+            id_to_object
+        ),
+        "@subteam @channnel @here",
+    );
+
+    assert_eq!(
+        format_message("Foo &lt;!everyone&gt; bar <http://test.com>", id_to_object),
+        "Foo <!everyone> bar http://test.com",
+    );
+}
+
+fn inflate_field(root: &mut JSONValue, key: &str, id_to_object: &HashMap<String, JSONValue>) {
     if let JSONString(id) = &root[key] {
         if let Some(object) = id_to_object.get(id) {
             root[key] = object.clone();

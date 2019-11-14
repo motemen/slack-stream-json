@@ -10,3 +10,5 @@ url = "2.0"
 tungstenite = "0.9"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
+regex = "1"
+lazy_static = "1"
