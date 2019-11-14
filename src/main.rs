@@ -1,15 +1,15 @@
-extern crate reqwest;
 extern crate serde;
 extern crate serde_json;
 extern crate structopt;
 extern crate tungstenite;
+#[macro_use]
+extern crate lazy_static;
 
+use regex::{Captures, Regex};
 use serde::Deserialize;
 use serde_json::Value as JSONValue;
 use serde_json::Value::String as JSONString;
 use std::collections::HashMap;
-use std::env;
-use std::error::Error;
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
@@ -41,10 +41,10 @@ struct SlackRTMStartResponse {
     ims: Option<Vec<JSONValue>>,
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opt = Opt::from_args();
 
-    let token = env::var("SLACK_TOKEN").or(Err("SLACK_TOKEN not set"))?;
+    let token = std::env::var("SLACK_TOKEN").or(Err("SLACK_TOKEN not set"))?;
 
     let client = reqwest::Client::new();
     let rtm_response_text = client
@@ -77,9 +77,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
             }
         }
-
         id_to_object
     };
+
+    if let Some(err) = rtm_response.error {
+        panic!(err)
+    }
 
     let start_url = rtm_response.url.expect("Could not obtain RTM start_url");
     let wss_url = url::Url::parse(&start_url)?;
@@ -96,19 +99,13 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
             if opt.format_message {
                 if let JSONString(s) = &v["text"] {
-                    v["text"] = JSONString(format!("{}", format_message(&s, &id_to_object)))
+                    v["text"] = JSONString(String::from(format_message(&s, &id_to_object)))
                 }
             }
-            println!("{}", serde_json::to_string(&v).unwrap());
+            println!("{}", serde_json::to_string(&v)?)
         }
     }
 }
-
-#[macro_use]
-extern crate lazy_static;
-
-extern crate regex;
-use regex::{Captures, Regex};
 
 // https://api.slack.com/docs/message-formatting#how_to_display_formatted_messages
 fn format_message<'a>(
@@ -122,22 +119,22 @@ fn format_message<'a>(
 
     RE.replace_all(message, |cap: &Captures| {
         if let Some(entity) = &cap.name("entity") {
-            match entity.as_str() {
-                "amp" => String::from("&"),
-                "lt" => String::from("<"),
-                "gt" => String::from(">"),
+            String::from(match entity.as_str() {
+                "amp" => "&",
+                "lt" => "<",
+                "gt" => ">",
                 _ => unreachable!(),
-            }
+            })
         } else {
             let text = &cap["text"];
             let sign = &cap["sign"];
-            if sign == "@" || sign == "#" {
+            if let Some(title) = cap.name("title") {
+                format!("{}{}", if sign == "!" { "" } else { sign }, title.as_str())
+            } else if sign == "@" || sign == "#" {
                 id_to_object.get(&cap["rest"]).map_or_else(
                     || text.to_string(),
-                    |obj| format!("@{}", obj["name"].as_str().unwrap()),
+                    |obj| format!("{}{}", sign, obj["name"].as_str().unwrap()),
                 )
-            } else if let Some(title) = cap.name("title") {
-                title.as_str().to_string()
             } else if sign == "!" {
                 format!("@{}", &cap["rest"])
             } else {
@@ -148,31 +145,37 @@ fn format_message<'a>(
 }
 
 #[test]
-fn test_fomrat_message() {
+fn test_format_message() {
     use serde_json::json;
 
-    let id_to_object = &[
-        (String::from("U12345"), json!({"name":"user12345"})),
-        (String::from("U99999"), json!({"name":"user99999"})),
+    let id_to_object: HashMap<String, JSONValue> = [
+        ("U12345", json!({"name": "user12345"})),
+        ("U99999", json!({"name": "user99999"})),
+        ("C56789", json!({"name": "ch56789"})),
     ]
     .iter()
-    .cloned()
+    .map(|(k, v)| (k.to_string(), v.clone()))
     .collect();
 
     assert_eq!(
-        format_message("normal message", id_to_object),
+        format_message("normal message", &id_to_object),
         "normal message",
     );
 
     assert_eq!(
-        format_message("<@U12345>, <@U99999> and <@U00000>", id_to_object),
+        format_message("<@U12345>, <@U99999> and <@U00000>", &id_to_object),
         "@user12345, @user99999 and @U00000",
+    );
+
+    assert_eq!(
+        format_message("<#C56789> <#C56789|ch>", &id_to_object),
+        "#ch56789 #ch",
     );
 
     assert_eq!(
         format_message(
             "<https://www.example.com/|example> my site <https://www.example.com/>",
-            id_to_object
+            &id_to_object
         ),
         "example my site https://www.example.com/",
     );
@@ -180,13 +183,13 @@ fn test_fomrat_message() {
     assert_eq!(
         format_message(
             "<!subteam^S00000000|@subteam> <!channnel> <!here>",
-            id_to_object
+            &id_to_object
         ),
         "@subteam @channnel @here",
     );
 
     assert_eq!(
-        format_message("Foo &lt;!everyone&gt; bar <http://test.com>", id_to_object),
+        format_message("Foo &lt;!everyone&gt; bar <http://test.com>", &id_to_object),
         "Foo <!everyone> bar http://test.com",
     );
 }
