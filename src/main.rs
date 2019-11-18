@@ -92,14 +92,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let message = websocket.read_message()?;
 
         if let tungstenite::Message::Text(text) = message {
+            // TODO: handle events like "channel_created" to update id_to_object
+            // TODO: handle "goodbye" event
             let mut v: JSONValue = serde_json::from_str(&text)?;
             if opt.inflate_fields {
+                // TODO: inflate "deeper" fields?
                 inflate_field(&mut v, "user", &id_to_object);
                 inflate_field(&mut v, "channel", &id_to_object);
             }
             if opt.format_message {
                 if let JSONString(s) = &v["text"] {
-                    v["text"] = JSONString(String::from(format_message(&s, &id_to_object)))
+                    v["text"] = JSONString(format_message(&s, &id_to_object))
                 }
             }
             println!("{}", serde_json::to_string(&v)?)
@@ -108,40 +111,37 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 // https://api.slack.com/docs/message-formatting#how_to_display_formatted_messages
-fn format_message<'a>(
-    message: &'a str,
-    id_to_object: &HashMap<String, JSONValue>,
-) -> std::borrow::Cow<'a, str> {
+fn format_message(message: &str, id_to_object: &HashMap<String, JSONValue>) -> String {
     lazy_static! {
         static ref RE: Regex =
             Regex::new(r"&(?P<entity>amp|lt|gt);|<(?P<text>(?P<sign>[#@!]?)(?P<rest>.*?(?:\|(?P<title>.+?))?))>").unwrap();
     }
 
-    RE.replace_all(message, |cap: &Captures| {
+    String::from(RE.replace_all(message, |cap: &Captures| {
         if let Some(entity) = &cap.name("entity") {
-            String::from(match entity.as_str() {
+            return String::from(match entity.as_str() {
                 "amp" => "&",
                 "lt" => "<",
                 "gt" => ">",
                 _ => unreachable!(),
-            })
-        } else {
-            let text = &cap["text"];
-            let sign = &cap["sign"];
-            if let Some(title) = cap.name("title") {
-                format!("{}{}", if sign == "!" { "" } else { sign }, title.as_str())
-            } else if sign == "@" || sign == "#" {
-                id_to_object.get(&cap["rest"]).map_or_else(
-                    || text.to_string(),
-                    |obj| format!("{}{}", sign, obj["name"].as_str().unwrap()),
-                )
-            } else if sign == "!" {
-                format!("@{}", &cap["rest"])
-            } else {
-                text.to_string()
-            }
+            });
         }
-    })
+
+        let text = &cap["text"];
+        let sign = &cap["sign"];
+        if let Some(title) = cap.name("title") {
+            format!("{}{}", if sign == "!" { "" } else { sign }, title.as_str())
+        } else if sign == "@" || sign == "#" {
+            id_to_object.get(&cap["rest"]).map_or_else(
+                || text.to_string(),
+                |obj| format!("{}{}", sign, obj["name"].as_str().unwrap()),
+            )
+        } else if sign == "!" {
+            format!("@{}", &cap["rest"])
+        } else {
+            text.to_string()
+        }
+    }))
 }
 
 #[test]
