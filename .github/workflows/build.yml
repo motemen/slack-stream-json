@@ -1,0 +1,16 @@
+on:
+  push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: rust-cargo
+        uses: actions-rs/cargo@v1.0.1
+        with:
+          # Cargo command to run (ex. `check` or `build`)
+          command: build
+          # Arguments for the cargo command
+          args: --release
+          # Use cross instead of cargo
+          use-cross: true
