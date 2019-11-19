@@ -1,10 +1,4 @@
-extern crate serde;
-extern crate serde_json;
-extern crate structopt;
-extern crate tungstenite;
-#[macro_use]
-extern crate lazy_static;
-
+use lazy_static::lazy_static;
 use regex::{Captures, Regex};
 use serde::Deserialize;
 use serde_json::Value as JSONValue;
