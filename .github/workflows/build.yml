@@ -27,12 +27,15 @@ jobs:
           path: target
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
 
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
       - uses: actions-rs/cargo@v1.0.1
         with:
           command: build
           args: --release --target=${{ matrix.target }}
           use-cross: true
-          
+
       - uses: actions/upload-artifact@v1.0.0
         with:
           name: slack-stream-json-${{ matrix.target }}
