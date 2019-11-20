@@ -115,7 +115,7 @@ jobs:
           upload_url: ${{ steps.upload-url.outputs.url }}
           asset_path: ./build-${{ matrix.target }}/slack-stream-json-${{ matrix.target }}.zip
           asset_name: slack-stream-json-${{ matrix.target }}.zip
- 
+          asset_content_type: application/zip
 
 # create_release:
 #   needs: [build]
