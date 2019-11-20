@@ -73,7 +73,7 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
-      - id: create_release
+      - id: create-release
         uses: actions/create-release@v1.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -83,10 +83,10 @@ jobs:
           draft: false
           prerelease: false
       - run: |
-          echo ${{ steps.create_release.outputs.upload_url }} > release_upload_url.txt
+          echo '${{ steps.create-release.outputs.upload_url }}' > release_upload_url.txt
       - uses: actions/upload-artifact@v1
         with:
-          name: create_release-url
+          name: create-release
           path: release_upload_url.txt
 
 # upload_release:
