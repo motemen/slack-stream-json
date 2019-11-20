@@ -70,6 +70,8 @@ jobs:
           path: slack-stream-json.zip
 
   create_release:
+    needs: [build]
+    runs-on: ubuntu-latest
     steps:
       - id: create_release
         uses: actions/create-release@v1.0.0
@@ -87,21 +89,21 @@ jobs:
           name: create_release-url
           path: release_upload_url.txt
 
-  upload_release:
-    strategy:
-      matrix:
-        target:
-          - x86_64-unknown-linux-gnu
-          - x86_64-pc-windows-gnu
-          - x86_64-apple-darwin
-    needs: [build]
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/download-artifact@v1
-        with:
-          name: build-${{ matrix.target }}
-          path: slack-stream-json.zip
+# upload_release:
+#   strategy:
+#     matrix:
+#       target:
+#         - x86_64-unknown-linux-gnu
+#         - x86_64-pc-windows-gnu
+#         - x86_64-apple-darwin
+#   needs: [build]
+#   runs-on: ubuntu-latest
+#
+#   steps:
+#     - uses: actions/download-artifact@v1
+#       with:
+#         name: build-${{ matrix.target }}
+#         path: slack-stream-json.zip
 
 # create_release:
 #   needs: [build]
