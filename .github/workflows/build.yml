@@ -102,20 +102,18 @@ jobs:
       - uses: actions/download-artifact@v1
         with:
           name: create-release
-          path: release_upload_url.txt
       - id: upload-url
         run: |
           echo "::set-output name=url::$(cat release_upload_url.txt)"
       - uses: actions/download-artifact@v1
         with:
           name: build-${{ matrix.target }}
-          path: slack-stream-json-${{ matrix.target }}.zip
       - uses: actions/upload-release-asset@v1.0.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.upload-url.outputs.url }}
-          asset_path: ./slack-stream-json.zip
+          asset_path: ./slack-stream-json-${{ matrix.target }}.zip
           asset_name: slack-stream-json-${{ matrix.target }}.zip
  
 
