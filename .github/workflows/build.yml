@@ -69,7 +69,7 @@ jobs:
           name: build-${{ matrix.target }}
           path: slack-stream-json-${{ matrix.target }}.zip
 
-  create_release:
+  create-release:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
@@ -89,21 +89,35 @@ jobs:
           name: create-release
           path: release_upload_url.txt
 
-# upload_release:
-#   strategy:
-#     matrix:
-#       target:
-#         - x86_64-unknown-linux-gnu
-#         - x86_64-pc-windows-gnu
-#         - x86_64-apple-darwin
-#   needs: [build]
-#   runs-on: ubuntu-latest
-#
-#   steps:
-#     - uses: actions/download-artifact@v1
-#       with:
-#         name: build-${{ matrix.target }}
-#         path: slack-stream-json.zip
+  upload-release:
+    strategy:
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - x86_64-pc-windows-gnu
+          - x86_64-apple-darwin
+    needs: [create-release]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v1
+        with:
+          name: create-release
+          path: release_upload_url.txt
+      - id: upload-url
+        run: |
+          echo "::set-output name=url::$(cat release_upload_url.txt)"
+      - uses: actions/download-artifact@v1
+        with:
+          name: build-${{ matrix.target }}
+          path: slack-stream-json-${{ matrix.target }}.zip
+      - uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.upload-url.outputs.url }}
+          asset_path: ./slack-stream-json.zip
+          asset_name: slack-stream-json-${{ matrix.target }}.zip
+ 
 
 # create_release:
 #   needs: [build]
