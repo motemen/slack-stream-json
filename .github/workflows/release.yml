@@ -1,4 +1,4 @@
-name: Build
+name: Release
 
 on:
   push:
@@ -19,16 +19,6 @@ jobs:
             os: ubuntu-latest
           - target: x86_64-apple-darwin
             os: macos-latest
-#       os:
-#         - ubuntu-latest
-#         - macos-latest
-#       exclude:
-#         - os: macos-latest
-#           target: x86_64-unknown-linux-gnu
-#         - os: macos-latest
-#           target: x86_64-pc-windows-gnu
-#         - os: ubuntu-latest
-#           target: x86_64-apple-darwin
 
     runs-on: ${{ matrix.os }}
 
@@ -116,29 +106,3 @@ jobs:
           asset_path: ./build-${{ matrix.target }}/slack-stream-json-${{ matrix.target }}.zip
           asset_name: slack-stream-json-${{ matrix.target }}.zip
           asset_content_type: application/zip
-
-# create_release:
-#   needs: [build]
-#   runs-on: ubuntu-latest
-#
-# release:
-#   needs: [build]
-#   runs-on: ubuntu-latest
-#   steps:
-#     - id: create_release
-#       uses: actions/create-release@v1.0.0
-#       env:
-#         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#       with:
-#         tag_name: ${{ github.ref }}
-#         release_name: Release ${{ github.ref }}
-#         draft: false
-#         prerelease: false
-#     - uses: actions/upload-release-asset@v1.0.1
-#       env:
-#         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#       with:
-#         upload_url: ${{ steps.create_release.outputs.upload_url }}
-#         asset_path: ./slack-stream-json.zip
-#         asset_name: slack-stream-json-${{ matrix.target }}.zip
-#         asset_content_type: application/zip
