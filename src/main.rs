@@ -86,7 +86,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let message = websocket.read_message()?;
 
         if let tungstenite::Message::Text(text) = message {
-            // TODO: handle events like "channel_created" to update id_to_object
+            // TODO: handle events like "team_join", channel_created" to update id_to_object
             // TODO: handle "goodbye" event
             let mut v: JSONValue = serde_json::from_str(&text)?;
             if opt.inflate_fields {
